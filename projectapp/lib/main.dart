@@ -1,44 +1,23 @@
+import 'package:projectapp/screens/auth/register_screen.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/material.dart';
+import 'core/theme/app_theme.dart';
+import 'screens/splash/splash_screen.dart';
+import 'screens/auth/register_screen.dart';
 
-void main() {
-  runApp(const MaterialApp(home: mainHome()));
-}
+//Main Function
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-class mainHome extends StatelessWidget {
-  const mainHome({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.lightBlueAccent,
-        title: Center(
-          child: Text(
-            "project 1",
-            style: TextStyle(
-              fontSize: 25,
-              fontWeight: FontWeight.w700,
-              color: Colors.black,
-            ),
-          ),
-        ),
-      ),
-
-      body: mainBody(),
-    );
-  }
-}
-
-class mainBody extends StatefulWidget {
-  const mainBody({super.key});
-
-  @override
-  State<mainBody> createState() => _mainBodyState();
-}
-
-class _mainBodyState extends State<mainBody> {
-  @override
-  Widget build(BuildContext context) {
-    return Column(children: [Container(color: Colors.amber)]);
-  }
+  await Supabase.initialize(
+    url: 'https://tgepucbmayjjquwnoeyn.supabase.co',
+    anonKey: 'sb_publishable_4_eO8FxGOQx2pIZw73wyHA_udMxybap',
+  );
+  runApp(
+    MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      home: const RegisterScreen(),
+    ),
+  );
 }
