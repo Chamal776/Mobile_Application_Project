@@ -17,7 +17,7 @@ Future<void> main() async {
     MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const RegisterScreen(),
+      home: const SplashScreen(),
     ),
   );
 }

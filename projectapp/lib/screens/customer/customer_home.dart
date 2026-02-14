@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/service_service.dart';
 import '../../models/service_model.dart';
+import 'booking_screen.dart';
 
 //Appbar
 class CustomerHome extends StatefulWidget {
@@ -78,6 +79,14 @@ class _customerHomeBodyState extends State<customerHomeBody> {
             title: Text(service.name),
             subtitle: Text("${service.duration} mins"),
             trailing: Text("Rs. ${service.price}"),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BookingScreen(service: service),
+                ),
+              );
+            },
           ),
         );
       },

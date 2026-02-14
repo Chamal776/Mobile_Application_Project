@@ -48,10 +48,11 @@ class _loginBodyState extends State<loginBody> {
 
       if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const RoleCheckScreen()),
-      );
+      Future.microtask(() {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const RoleCheckScreen()),
+        );
+      });
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -96,12 +97,15 @@ class _loginBodyState extends State<loginBody> {
 
           TextButton(
             onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (_) => const RegisterScreen()),
-              );
+              if (!mounted) return;
+
+              Future.microtask(() {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                );
+              });
             },
-            child: Text("Don't Have an Account? Register"),
+            child: const Text("Don't have account? Register"),
           ),
         ],
       ),
