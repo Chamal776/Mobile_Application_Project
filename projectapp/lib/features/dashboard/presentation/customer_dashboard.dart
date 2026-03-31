@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/appointment_status_badge.dart';
 import '../../booking/data/booking_repository.dart';
 import '../../booking/domain/appointment_model.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 
 class CustomerDashboard extends ConsumerWidget {
   const CustomerDashboard({super.key});

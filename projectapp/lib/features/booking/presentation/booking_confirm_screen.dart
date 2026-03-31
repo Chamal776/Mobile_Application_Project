@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../../services/domain/service_model.dart';
 import '../data/booking_repository.dart';
+import '../../../core/services/notification_service.dart';
 
 class BookingConfirmScreen extends ConsumerStatefulWidget {
   final ServiceModel service;
@@ -53,6 +54,22 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
                 ? null
                 : _notesController.text.trim(),
           );
+
+      // ── Trigger notifications ──────────────────────────────
+      await NotificationService().showAppointmentConfirmed(widget.service.name);
+
+      // Schedule 1-hour reminder
+      final appointmentDateTime = DateTime(
+        widget.date.year,
+        widget.date.month,
+        widget.date.day,
+        int.parse(widget.time.split(':')[0]),
+        int.parse(widget.time.split(':')[1]),
+      );
+      await NotificationService().scheduleAppointmentReminder(
+        serviceName: widget.service.name,
+        appointmentDateTime: appointmentDateTime,
+      );
 
       if (!mounted) return;
       _showSuccess();

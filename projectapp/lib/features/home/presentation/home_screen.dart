@@ -4,10 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../features/services/data/services_repository.dart';
-import '../../../features/services/domain/service_model.dart';
 import '../../../shared/widgets/service_card.dart';
+import '../../../shared/widgets/staff_card.dart';
+import '../../../shared/widgets/shimmer_loader.dart';
+import '../../services/data/services_repository.dart';
+import '../../services/presentation/services_screen.dart';
+import '../../services/presentation/service_detail_screen.dart';
+import '../../services/domain/service_model.dart';
+import '../../staff/presentation/staff_screen.dart';
 import '../../dashboard/presentation/customer_dashboard.dart';
+import '../../notifications/data/notifications_repository.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 
 final _selectedCategoryProvider = StateProvider<String>((ref) => 'All');
 
@@ -23,7 +30,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
 
-  final _screens = const [_HomeTab(), CustomerDashboard()];
+  final _screens = const [_HomeTab(), StaffScreen(), CustomerDashboard()];
 
   @override
   Widget build(BuildContext context) {
@@ -54,6 +61,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               icon: Icon(Icons.home_outlined),
               activeIcon: Icon(Icons.home_rounded),
               label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_outline_rounded),
+              activeIcon: Icon(Icons.people_rounded),
+              label: 'Stylists',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.calendar_month_outlined),
@@ -121,53 +133,113 @@ class _HomeTab extends ConsumerWidget {
                           ),
                         ],
                       ).animate().fadeIn().slideX(begin: -0.1),
-                      GestureDetector(
-                        onTap: () async {
-                          await Supabase.instance.client.auth.signOut();
-                          if (context.mounted) context.go('/login');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(.15),
-                            borderRadius: BorderRadius.circular(12),
+                      Row(
+                        children: [
+                          // Bell icon
+                          Consumer(
+                            builder: (context, ref, _) {
+                              final unreadAsync = ref.watch(
+                                unreadCountProvider,
+                              );
+                              final count = unreadAsync.value ?? 0;
+                              return GestureDetector(
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const NotificationsScreen(),
+                                  ),
+                                ),
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(.15),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.notifications_outlined,
+                                        color: Colors.white,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    if (count > 0)
+                                      Positioned(
+                                        right: 6,
+                                        top: 6,
+                                        child: Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.blushPink,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
-                          child: const Icon(
-                            Icons.logout_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ).animate().fadeIn(delay: 200.ms),
+                          const SizedBox(width: 10),
+                          // Logout
+                          GestureDetector(
+                            onTap: () async {
+                              await Supabase.instance.client.auth.signOut();
+                              if (context.mounted) {
+                                context.go('/login');
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.logout_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          ).animate().fadeIn(delay: 200.ms),
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),
                   // Search bar
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ServicesScreen()),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(.15),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.search_rounded,
-                          color: Colors.white70,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          'Search services...',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(.6),
-                            fontSize: 14,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(.15),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.search_rounded,
+                            color: Colors.white70,
+                            size: 20,
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Text(
+                            'Search services...',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(.6),
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ).animate().fadeIn(delay: 300.ms),
                 ],
@@ -223,7 +295,7 @@ class _HomeTab extends ConsumerWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-          // Services section title
+          // Services title
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -238,9 +310,18 @@ class _HomeTab extends ConsumerWidget {
                       fontSize: 18,
                     ),
                   ),
-                  Text(
-                    'See all',
-                    style: TextStyle(color: AppColors.softPurple, fontSize: 13),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ServicesScreen()),
+                    ),
+                    child: const Text(
+                      'See all',
+                      style: TextStyle(
+                        color: AppColors.softPurple,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -249,10 +330,19 @@ class _HomeTab extends ConsumerWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
-          // Services horizontal list
+          // Services list
           SliverToBoxAdapter(
             child: servicesAsync.when(
-              loading: () => _ServicesShimmer(),
+              loading: () => SizedBox(
+                height: 200,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  itemCount: 4,
+                  separatorBuilder: (_, __) => const SizedBox(width: 14),
+                  itemBuilder: (_, __) => const ShimmerServiceCard(),
+                ),
+              ),
               error: (e, _) => Center(
                 child: Text(
                   'Error loading services',
@@ -269,7 +359,13 @@ class _HomeTab extends ConsumerWidget {
                   itemBuilder: (context, i) {
                     return ServiceCard(
                           service: services[i],
-                          onTap: () => _goToDetail(context, services[i]),
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ServiceDetailScreen(service: services[i]),
+                            ),
+                          ),
                         )
                         .animate()
                         .fadeIn(delay: (i * 80).ms)
@@ -277,6 +373,58 @@ class _HomeTab extends ConsumerWidget {
                   },
                 ),
               ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
+
+          // Stylists title
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Top stylists',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 18,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const StaffScreen()),
+                    ),
+                    child: const Text(
+                      'See all',
+                      style: TextStyle(
+                        color: AppColors.softPurple,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+
+          // Stylists list
+          SliverToBoxAdapter(
+            child: Consumer(
+              builder: (context, ref, _) {
+                final staffAsync = ref.watch(staffListProvider);
+                return staffAsync.when(
+                  loading: () => const ShimmerLoader(height: 130),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (staffList) =>
+                      StaffHorizontalList(staffList: staffList),
+                );
+              },
             ),
           ),
 
@@ -294,10 +442,10 @@ class _HomeTab extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    Expanded(
+                    const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
+                        children: [
                           Text(
                             '20% off your first booking!',
                             style: TextStyle(
@@ -335,42 +483,10 @@ class _HomeTab extends ConsumerWidget {
     );
   }
 
-  void _goToDetail(BuildContext context, ServiceModel service) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => ServiceDetailScreen(service: service)),
-    );
-  }
-
   String _greeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning,';
     if (hour < 17) return 'Good afternoon,';
     return 'Good evening,';
-  }
-}
-
-class _ServicesShimmer extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 200,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(width: 14),
-        itemBuilder: (_, __) =>
-            Container(
-                  width: 150,
-                  decoration: BoxDecoration(
-                    color: AppColors.cardSurface,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                )
-                .animate(onPlay: (c) => c.repeat())
-                .shimmer(duration: 1200.ms, color: AppColors.cardElevated),
-      ),
-    );
   }
 }

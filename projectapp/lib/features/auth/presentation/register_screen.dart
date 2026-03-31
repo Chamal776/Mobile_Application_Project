@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/gradient_button.dart';
+import '../data/auth_repository.dart';
 
-class RegisterScreen extends StatefulWidget {
+class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -38,24 +40,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await Supabase.instance.client.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        data: {'full_name': _nameController.text.trim()},
-      );
+      await ref
+          .read(authRepositoryProvider)
+          .signUp(
+            fullName: _nameController.text.trim(),
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            phone: _phoneController.text.trim(),
+          );
 
       if (!mounted) return;
-
-      if (response.user != null) {
-        // Update phone in profiles table
-        await Supabase.instance.client
-            .from('profiles')
-            .update({'phone': _phoneController.text.trim()})
-            .eq('id', response.user!.id);
-
-        _showSuccess();
-        context.go('/home');
-      }
+      _showSuccess();
+      context.go('/home');
     } on AuthException catch (e) {
       if (!mounted) return;
       _showError(e.message);
@@ -154,7 +150,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               children: [
                 const SizedBox(height: 40),
 
-                // Header
                 Center(
                   child: Column(
                     children: [
@@ -206,7 +201,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (v) =>
                       v == null || v.isEmpty ? 'Enter your name' : null,
                 ),
-
                 _buildField(
                   controller: _emailController,
                   label: 'Email',
@@ -220,7 +214,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-
                 _buildField(
                   controller: _phoneController,
                   label: 'Phone number',
@@ -231,7 +224,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   validator: (v) =>
                       v == null || v.isEmpty ? 'Enter your phone' : null,
                 ),
-
                 _buildField(
                   controller: _passwordController,
                   label: 'Password',
@@ -247,7 +239,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     return null;
                   },
                 ),
-
                 _buildField(
                   controller: _confirmController,
                   label: 'Confirm password',

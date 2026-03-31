@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/gradient_button.dart';
+import '../data/auth_repository.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -31,27 +33,19 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final user = await ref
+          .read(authRepositoryProvider)
+          .signIn(
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+          );
 
       if (!mounted) return;
 
-      if (response.session != null) {
-        final profile = await Supabase.instance.client
-            .from('profiles')
-            .select('role')
-            .eq('id', response.user!.id)
-            .single();
-
-        final role = profile['role'] as String;
-
-        if (role == 'admin' || role == 'super_admin') {
-          context.go('/admin');
-        } else {
-          context.go('/home');
-        }
+      if (user.isAdmin) {
+        context.go('/admin');
+      } else {
+        context.go('/home');
       }
     } on AuthException catch (e) {
       if (!mounted) return;
@@ -89,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 60),
 
-                // Logo / brand
+                // Logo
                 Center(
                   child: Column(
                     children: [
@@ -128,17 +122,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.textSecondary,
                         ),
-                      ).animate().fadeIn(delay: 300.ms, duration: 600.ms),
+                      ).animate().fadeIn(delay: 300.ms),
                     ],
                   ),
                 ),
 
                 const SizedBox(height: 56),
 
-                // Email field
+                // Email
                 Text(
                   'Email',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -166,10 +160,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 20),
 
-                // Password field
+                // Password
                 Text(
                   'Password',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -213,7 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {},
-                    child: Text(
+                    child: const Text(
                       'Forgot password?',
                       style: TextStyle(
                         color: AppColors.softPurple,
@@ -225,7 +219,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Login button
                 GradientButton(
                   label: 'Sign in',
                   isLoading: _isLoading,
@@ -234,7 +227,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Divider
                 Row(
                   children: [
                     Expanded(
@@ -262,7 +254,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Register link
                 Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
