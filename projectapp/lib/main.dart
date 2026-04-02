@@ -18,8 +18,8 @@ void main() async {
   );
 
   await Supabase.initialize(
-    url: 'https://uumcomtsjumqgzmkhylj.supabase.co',
-    anonKey: 'sb_publishable_qcm558f0Y5vC--GUWXkeKQ_A9hll8lN',
+    url: 'YOUR_SUPABASE_URL',
+    anonKey: 'YOUR_SUPABASE_ANON_KEY',
   );
 
   await NotificationService().initialize();

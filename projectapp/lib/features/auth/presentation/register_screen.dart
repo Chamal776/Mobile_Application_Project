@@ -1,9 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/gradient_button.dart';
@@ -26,8 +24,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
-  File? _selectedImage;
-  final _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -39,52 +35,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
-    final picked = await _picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 70,
-      maxWidth: 500,
-    );
-    if (picked != null) {
-      setState(() => _selectedImage = File(picked.path));
-    }
-  }
-
-  Future<String?> _uploadAvatar(String userId) async {
-    if (_selectedImage == null) return null;
-    try {
-      final bytes = await _selectedImage!.readAsBytes();
-      final fileExt = _selectedImage!.path.split('.').last;
-      final fileName = '$userId.$fileExt';
-
-      await Supabase.instance.client.storage
-          .from('avatars')
-          .uploadBinary(
-            fileName,
-            bytes,
-            fileOptions: FileOptions(
-              contentType: 'image/$fileExt',
-              upsert: true,
-            ),
-          );
-
-      final url = Supabase.instance.client.storage
-          .from('avatars')
-          .getPublicUrl(fileName);
-
-      return url;
-    } catch (e) {
-      debugPrint('Avatar upload error: $e');
-      return null;
-    }
-  }
-
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
 
     try {
-      final user = await ref
+      await ref
           .read(authRepositoryProvider)
           .signUp(
             fullName: _nameController.text.trim(),
@@ -92,15 +48,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             password: _passwordController.text,
             phone: _phoneController.text.trim(),
           );
-
-      if (_selectedImage != null) {
-        final avatarUrl = await _uploadAvatar(user.id);
-        if (avatarUrl != null) {
-          await ref
-              .read(authRepositoryProvider)
-              .updateProfile(userId: user.id, avatarUrl: avatarUrl);
-        }
-      }
 
       if (!mounted) return;
       _showSuccess();
@@ -110,7 +57,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       _showError(e.message);
     } catch (e) {
       if (!mounted) return;
-      _showError(e.toString());
+      _showError('Something went wrong. Please try again.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -203,7 +150,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               children: [
                 const SizedBox(height: 40),
 
-                // Header
                 Center(
                   child: Column(
                     children: [
@@ -244,76 +190,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 40),
 
-                // Avatar picker
-                Center(
-                  child: GestureDetector(
-                    onTap: _pickImage,
-                    child: Stack(
-                      children: [
-                        Container(
-                          width: 90,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            gradient: AppColors.primaryGradient,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppColors.softPurple,
-                              width: 2,
-                            ),
-                          ),
-                          child: _selectedImage != null
-                              ? ClipOval(
-                                  child: Image.file(
-                                    _selectedImage!,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.person_outline_rounded,
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
-                        ),
-                        Positioned(
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              gradient: AppColors.accentGradient,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.deepNight,
-                                width: 2,
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.camera_alt_rounded,
-                              color: Colors.white,
-                              size: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ).animate().fadeIn(delay: 300.ms),
-
-                const SizedBox(height: 8),
-
-                Center(
-                  child: Text(
-                    'Add profile photo (optional)',
-                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Fields
                 _buildField(
                   controller: _nameController,
                   label: 'Full name',

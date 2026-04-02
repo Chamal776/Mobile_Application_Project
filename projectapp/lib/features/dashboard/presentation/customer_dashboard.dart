@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../shared/widgets/shimmer_loader.dart';
+import '../../../shared/widgets/appointment_status_badge.dart';
 import '../../booking/data/booking_repository.dart';
-import '../../notifications/data/notifications_repository.dart';
+import '../../booking/domain/appointment_model.dart';
 import '../../notifications/presentation/notifications_screen.dart';
-import 'appointment_card.dart';
 
 class CustomerDashboard extends ConsumerWidget {
   const CustomerDashboard({super.key});
@@ -36,103 +36,50 @@ class CustomerDashboard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                name
-                                    .split(' ')
-                                    .map((e) => e.isNotEmpty ? e[0] : '')
-                                    .take(2)
-                                    .join(),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
-                              ),
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            name.split(' ').map((e) => e[0]).take(2).join(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
                             ),
                           ),
-                          const SizedBox(width: 14),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'My account',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Text(
-                                name,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'My account',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 18,
+                            ),
                           ),
                         ],
-                      ),
-                      // Bell icon
-                      Consumer(
-                        builder: (context, ref, _) {
-                          final unreadAsync = ref.watch(unreadCountProvider);
-                          final count = unreadAsync.value ?? 0;
-                          return GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const NotificationsScreen(),
-                              ),
-                            ),
-                            child: Stack(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.notifications_outlined,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
-                                ),
-                                if (count > 0)
-                                  Positioned(
-                                    right: 6,
-                                    top: 6,
-                                    child: Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.blushPink,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
                       ),
                     ],
                   ).animate().fadeIn(),
                   const SizedBox(height: 20),
-                  // Stats
+                  // Stats row
                   upcomingAsync.when(
                     loading: () => const SizedBox.shrink(),
                     error: (_, __) => const SizedBox.shrink(),
@@ -167,7 +114,7 @@ class CustomerDashboard extends ConsumerWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-          // Upcoming title
+          // Upcoming appointments
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -186,7 +133,9 @@ class CustomerDashboard extends ConsumerWidget {
 
           SliverToBoxAdapter(
             child: upcomingAsync.when(
-              loading: () => const ShimmerListLoader(count: 2),
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.softPurple),
+              ),
               error: (e, _) => Center(
                 child: Text(
                   'Error: $e',
@@ -224,7 +173,7 @@ class CustomerDashboard extends ConsumerWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 28)),
 
-          // History title
+          // History
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -243,7 +192,9 @@ class CustomerDashboard extends ConsumerWidget {
 
           SliverToBoxAdapter(
             child: historyAsync.when(
-              loading: () => const ShimmerListLoader(count: 2),
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.softPurple),
+              ),
               error: (e, _) => Center(
                 child: Text(
                   'Error: $e',
@@ -321,6 +272,167 @@ class CustomerDashboard extends ConsumerWidget {
   }
 }
 
+class AppointmentCard extends StatelessWidget {
+  final AppointmentModel appointment;
+  final VoidCallback? onCancel;
+  final bool showReview;
+
+  const AppointmentCard({
+    super.key,
+    required this.appointment,
+    this.onCancel,
+    this.showReview = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dateStr = DateFormat(
+      'EEE, MMM d',
+    ).format(appointment.appointmentDate);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardSurface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.statusColor(appointment.status).withOpacity(.2),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  appointment.serviceNames.join(', '),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              AppointmentStatusBadge(status: appointment.status),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _InfoChip(icon: Icons.calendar_today_outlined, label: dateStr),
+              const SizedBox(width: 10),
+              _InfoChip(
+                icon: Icons.access_time_rounded,
+                label: appointment.appointmentTime,
+              ),
+            ],
+          ),
+          if (appointment.staffName != null) ...[
+            const SizedBox(height: 8),
+            _InfoChip(
+              icon: Icons.person_outline_rounded,
+              label: appointment.staffName!,
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              ShaderMask(
+                shaderCallback: (b) => AppColors.heroGradient.createShader(b),
+                child: Text(
+                  '\$${appointment.totalPrice.toStringAsFixed(0)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  if (showReview)
+                    TextButton(
+                      onPressed: () {},
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        backgroundColor: AppColors.royalViolet.withOpacity(.15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Leave review',
+                        style: TextStyle(
+                          color: AppColors.softPurple,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  if (onCancel != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: onCancel,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        backgroundColor: AppColors.coralError.withOpacity(.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.coralError,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _InfoChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppColors.textMuted, size: 14),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+        ),
+      ],
+    );
+  }
+}
+
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
@@ -379,7 +491,7 @@ class _EmptyState extends StatelessWidget {
             Container(
               width: 64,
               height: 64,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.cardSurface,
                 shape: BoxShape.circle,
               ),

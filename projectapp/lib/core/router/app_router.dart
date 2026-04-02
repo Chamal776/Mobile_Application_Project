@@ -5,7 +5,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/admin/presentation/admin_dashboard.dart';
-import '../../features/services/presentation/service_screen.dart';
+import '../../features/services/presentation/services_screen.dart';
 import '../../features/staff/presentation/staff_screen.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/reviews/presentation/reviews_list_screen.dart';
