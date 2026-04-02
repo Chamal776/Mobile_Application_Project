@@ -38,6 +38,38 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
     super.dispose();
   }
 
+  // ── Safely extract profile from staff map ─────────────
+  Map<String, dynamic> _getProfile() {
+    try {
+      // Try 'profile' key first (new format)
+      final profile = widget.staff['profile'];
+      if (profile is Map<String, dynamic> && profile.isNotEmpty) {
+        return profile;
+      }
+      // Try 'profiles' key (old format)
+      final profiles = widget.staff['profiles'];
+      if (profiles is Map<String, dynamic>) return profiles;
+      if (profiles is List && profiles.isNotEmpty) {
+        final first = profiles.first;
+        if (first is Map<String, dynamic>) return first;
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  String _getStaffName() {
+    try {
+      final profile = _getProfile();
+      final name = profile['full_name'] as String?;
+      if (name != null && name.isNotEmpty) return name;
+      return 'Your stylist';
+    } catch (_) {
+      return 'Your stylist';
+    }
+  }
+
   Future<void> _confirm() async {
     setState(() => _isLoading = true);
     try {
@@ -55,10 +87,8 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
                 : _notesController.text.trim(),
           );
 
-      // ── Trigger notifications ──────────────────────────────
       await NotificationService().showAppointmentConfirmed(widget.service.name);
 
-      // Schedule 1-hour reminder
       final appointmentDateTime = DateTime(
         widget.date.year,
         widget.date.month,
@@ -134,7 +164,10 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
               GradientButton(
                 label: 'View my bookings',
                 onPressed: () {
+                  // Close dialog first
                   Navigator.of(context).pop();
+                  // Then navigate to home and switch to
+                  // My Bookings tab (index 2)
                   context.go('/home');
                 },
               ),
@@ -147,8 +180,8 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = widget.staff['profiles'] as Map<String, dynamic>;
-    final dateStr = DateFormat('EEEE, MMMM d').format(widget.date);
+    final String staffName = _getStaffName();
+    final String dateStr = DateFormat('EEEE, MMMM d').format(widget.date);
 
     return Scaffold(
       backgroundColor: AppColors.deepNight,
@@ -174,7 +207,6 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Summary card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(24),
@@ -222,7 +254,7 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
                   _DetailRow(
                     icon: Icons.person_outline_rounded,
                     label: 'Stylist',
-                    value: profile['full_name'],
+                    value: staffName,
                   ),
                   const SizedBox(height: 14),
                   _DetailRow(
@@ -264,7 +296,6 @@ class _BookingConfirmScreenState extends ConsumerState<BookingConfirmScreen> {
 
             const SizedBox(height: 20),
 
-            // Notes field
             Container(
               decoration: BoxDecoration(
                 color: AppColors.cardSurface,

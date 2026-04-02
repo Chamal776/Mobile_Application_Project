@@ -33,11 +33,24 @@ class AuthRepository {
       throw Exception('Sign in failed');
     }
 
-    final profile = await _client
-        .from('profiles')
-        .select()
-        .eq('id', response.user!.id)
-        .single();
+    // ── Retry fetching profile up to 3 times ─────────────
+    Map<String, dynamic>? profile;
+    for (int i = 0; i < 3; i++) {
+      try {
+        profile = await _client
+            .from('profiles')
+            .select()
+            .eq('id', response.user!.id)
+            .single();
+        break;
+      } catch (_) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+    }
+
+    if (profile == null) {
+      throw Exception('Could not load user profile');
+    }
 
     return AuthUserModel.fromJson(profile);
   }
@@ -58,6 +71,7 @@ class AuthRepository {
       throw Exception('Sign up failed');
     }
 
+    // Update phone if provided
     if (phone != null && phone.isNotEmpty) {
       await _client
           .from('profiles')
@@ -65,11 +79,36 @@ class AuthRepository {
           .eq('id', response.user!.id);
     }
 
-    final profile = await _client
-        .from('profiles')
-        .select()
-        .eq('id', response.user!.id)
-        .single();
+    // ── Small delay to let trigger complete ──────────────
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // ── Retry fetching profile up to 3 times ─────────────
+    Map<String, dynamic>? profile;
+    for (int i = 0; i < 3; i++) {
+      try {
+        profile = await _client
+            .from('profiles')
+            .select()
+            .eq('id', response.user!.id)
+            .single();
+        break; // success — exit loop
+      } catch (_) {
+        // wait a bit more and retry
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+    }
+
+    // ── If profile still null, build a basic one ─────────
+    if (profile == null) {
+      return AuthUserModel(
+        id: response.user!.id,
+        fullName: fullName,
+        email: email,
+        phone: phone,
+        role: 'customer',
+        createdAt: DateTime.now(),
+      );
+    }
 
     return AuthUserModel.fromJson(profile);
   }

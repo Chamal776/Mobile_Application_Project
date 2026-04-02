@@ -1,62 +1,58 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'app_colors.dart';
 
-class AppColors {
-  static const deepNight = Color(0xFF0D0D1A);
-  static const cardSurface = Color(0xFF1A1A2E);
-  static const cardElevated = Color(0xFF252545);
-
-  static const royalViolet = Color(0xFF6C3DE8);
-  static const softPurple = Color(0xFFA259FF);
-  static const blushPink = Color(0xFFFF6B9D);
-  static const goldenStar = Color(0xFFFFD166);
-
-  static const mintSuccess = Color(0xFF06D6A0);
-  static const coralError = Color(0xFFFF6B6B);
-  static const skyInfo = Color(0xFF4CC9F0);
-
-  static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFFB0B0C8);
-  static const textMuted = Color(0xFF6B6B8A);
-
-  static const primaryGradient = LinearGradient(
-    colors: [royalViolet, softPurple],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
+class AppTheme {
+  static ThemeData get dark => ThemeData(
+    brightness: Brightness.dark,
+    scaffoldBackgroundColor: AppColors.deepNight,
+    colorScheme: const ColorScheme.dark(
+      primary: AppColors.royalViolet,
+      secondary: AppColors.softPurple,
+      tertiary: AppColors.blushPink,
+      surface: AppColors.cardSurface,
+      error: AppColors.coralError,
+    ),
+    textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      foregroundColor: AppColors.textPrimary,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: AppColors.royalViolet,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: AppColors.cardSurface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.royalViolet, width: 1.5),
+      ),
+      labelStyle: const TextStyle(color: AppColors.textSecondary),
+      hintStyle: const TextStyle(color: AppColors.textMuted),
+    ),
+    cardTheme: CardThemeData(
+      color: AppColors.cardSurface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 0,
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: AppColors.cardSurface,
+      selectedItemColor: AppColors.softPurple,
+      unselectedItemColor: AppColors.textMuted,
+      type: BottomNavigationBarType.fixed,
+      elevation: 0,
+    ),
   );
-
-  static const heroGradient = LinearGradient(
-    colors: [royalViolet, softPurple, blushPink],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const accentGradient = LinearGradient(
-    colors: [softPurple, blushPink],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static const warmGradient = LinearGradient(
-    colors: [blushPink, goldenStar],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  static Color statusColor(String status) => switch (status) {
-    'pending' => textMuted,
-    'confirmed' => softPurple,
-    'in_progress' => goldenStar,
-    'completed' => mintSuccess,
-    'cancelled' => coralError,
-    _ => textMuted,
-  };
-
-  static Color statusBg(String status) => switch (status) {
-    'pending' => cardElevated,
-    'confirmed' => Color(0x336C3DE8),
-    'in_progress' => Color(0x26FFD166),
-    'completed' => Color(0x2606D6A0),
-    'cancelled' => Color(0x26FF6B6B),
-    _ => cardElevated,
-  };
 }

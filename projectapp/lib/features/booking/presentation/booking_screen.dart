@@ -38,30 +38,162 @@ class BookingScreen extends ConsumerStatefulWidget {
 class _BookingScreenState extends ConsumerState<BookingScreen> {
   List<Map<String, dynamic>> _staffList = [];
   bool _loadingStaff = true;
+  String? _staffError;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(_selectedTimeProvider.notifier).state = null;
+      ref.read(_selectedStaffProvider.notifier).state = null;
+    });
     _loadStaff();
   }
 
   Future<void> _loadStaff() async {
-    final data = await Supabase.instance.client
-        .from('staff')
-        .select('''
-          id, is_available,
-          profiles:profile_id ( full_name, avatar_url ),
-          staff_services!inner ( service_id )
-        ''')
-        .eq('is_available', true)
-        .eq('staff_services.service_id', widget.service.id);
-
-    if (mounted) {
+    try {
       setState(() {
-        _staffList = (data as List).cast<Map<String, dynamic>>();
+        _loadingStaff = true;
+        _staffError = null;
+      });
+
+      // Query staff with explicit join to profiles
+      final data = await Supabase.instance.client
+          .from('staff')
+          .select('''
+            id,
+            bio,
+            is_available,
+            profile_id,
+            staff_services!inner ( service_id )
+          ''')
+          .eq('is_available', true)
+          .eq('staff_services.service_id', widget.service.id);
+
+      if (!mounted) return;
+
+      final staffList = (data as List).cast<Map<String, dynamic>>();
+
+      // Now fetch profiles separately for each staff
+      final enrichedList = await _enrichWithProfiles(staffList);
+
+      if (enrichedList.isEmpty) {
+        // Fallback — get all available staff
+        final allData = await Supabase.instance.client
+            .from('staff')
+            .select('''
+              id,
+              bio,
+              is_available,
+              profile_id
+            ''')
+            .eq('is_available', true);
+
+        if (!mounted) return;
+
+        final allList = (allData as List).cast<Map<String, dynamic>>();
+        final allEnriched = await _enrichWithProfiles(allList);
+
+        if (!mounted) return;
+        setState(() {
+          _staffList = allEnriched;
+          _loadingStaff = false;
+        });
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _staffList = enrichedList;
+          _loadingStaff = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Staff load error: $e');
+      if (!mounted) return;
+      setState(() {
+        _staffError = e.toString();
         _loadingStaff = false;
       });
     }
+  }
+
+  // Fetch profiles separately and attach to staff records
+  Future<List<Map<String, dynamic>>> _enrichWithProfiles(
+    List<Map<String, dynamic>> staffList,
+  ) async {
+    final enriched = <Map<String, dynamic>>[];
+
+    for (final staff in staffList) {
+      final profileId = staff['profile_id'];
+      if (profileId == null) {
+        enriched.add({...staff, 'profile': {}});
+        continue;
+      }
+
+      try {
+        final profile = await Supabase.instance.client
+            .from('profiles')
+            .select('full_name, email, avatar_url, phone')
+            .eq('id', profileId)
+            .single();
+
+        enriched.add({...staff, 'profile': profile as Map<String, dynamic>});
+      } catch (_) {
+        enriched.add({...staff, 'profile': {}});
+      }
+    }
+
+    return enriched;
+  }
+
+  String _getStaffName(Map<String, dynamic> staff) {
+    try {
+      // Try our new 'profile' key first
+      final profile = staff['profile'];
+      if (profile is Map<String, dynamic>) {
+        final name = profile['full_name'] as String?;
+        if (name != null && name.isNotEmpty) return name;
+      }
+
+      // Fallback to 'profiles' key (old format)
+      final profiles = staff['profiles'];
+      if (profiles is Map<String, dynamic>) {
+        final name = profiles['full_name'] as String?;
+        if (name != null && name.isNotEmpty) return name;
+      }
+      if (profiles is List && profiles.isNotEmpty) {
+        final first = profiles.first;
+        if (first is Map<String, dynamic>) {
+          final name = first['full_name'] as String?;
+          if (name != null && name.isNotEmpty) return name;
+        }
+      }
+
+      return 'Stylist';
+    } catch (_) {
+      return 'Stylist';
+    }
+  }
+
+  Map<String, dynamic> _getStaffProfileMap(Map<String, dynamic> staff) {
+    try {
+      final profile = staff['profile'];
+      if (profile is Map<String, dynamic> && profile.isNotEmpty) {
+        return profile;
+      }
+      final profiles = staff['profiles'];
+      if (profiles is Map<String, dynamic>) return profiles;
+      if (profiles is List && profiles.isNotEmpty) {
+        final first = profiles.first;
+        if (first is Map<String, dynamic>) return first;
+      }
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  String _getInitials(String name) {
+    return name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join();
   }
 
   @override
@@ -95,7 +227,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Service summary card
+            // Service summary
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -263,112 +395,205 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             // Staff selection
             _SectionTitle('Choose stylist'),
             const SizedBox(height: 12),
-            _loadingStaff
-                ? const Center(
-                    child: CircularProgressIndicator(
-                      color: AppColors.softPurple,
+
+            if (_loadingStaff)
+              const Center(
+                child: CircularProgressIndicator(color: AppColors.softPurple),
+              )
+            else if (_staffError != null)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.coralError.withOpacity(.1),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: AppColors.coralError,
+                      size: 20,
                     ),
-                  )
-                : _staffList.isEmpty
-                ? Text(
-                    'No stylists available for this service',
-                    style: TextStyle(color: AppColors.textMuted),
-                  )
-                : Column(
-                    children: _staffList.map((staff) {
-                      final profile = staff['profiles'] as Map<String, dynamic>;
-                      final isSelected = selectedStaff?['id'] == staff['id'];
-                      return GestureDetector(
-                        onTap: () =>
-                            ref.read(_selectedStaffProvider.notifier).state =
-                                staff,
-                        child: AnimatedContainer(
-                          duration: 200.ms,
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardSurface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.softPurple
-                                  : Colors.transparent,
-                              width: 1.5,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Could not load stylists. Tap to retry.',
+                        style: TextStyle(
+                          color: AppColors.coralError,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _loadStaff,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              )
+            else if (_staffList.isEmpty)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.cardSurface,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColors.textMuted,
+                      size: 20,
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'No stylists available right now.',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              Column(
+                children: _staffList.map((staff) {
+                  final name = _getStaffName(staff);
+                  final profile = _getStaffProfileMap(staff);
+                  final isSelected = selectedStaff?['id'] == staff['id'];
+                  final avatarUrl = profile['avatar_url'] as String?;
+
+                  return GestureDetector(
+                    onTap: () =>
+                        ref.read(_selectedStaffProvider.notifier).state = staff,
+                    child: AnimatedContainer(
+                      duration: 200.ms,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardSurface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppColors.softPurple
+                              : Colors.transparent,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Avatar
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: const BoxDecoration(
+                              gradient: AppColors.primaryGradient,
+                              shape: BoxShape.circle,
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  gradient: AppColors.primaryGradient,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    (profile['full_name'] as String)
-                                        .split(' ')
-                                        .map((e) => e[0])
-                                        .take(2)
-                                        .join(),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                            child: avatarUrl != null && avatarUrl.isNotEmpty
+                                ? ClipOval(
+                                    child: Image.network(
+                                      avatarUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Center(
+                                        child: Text(
+                                          _getInitials(name),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : Center(
+                                    child: Text(
+                                      _getInitials(name),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  profile['full_name'],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
                                   style: const TextStyle(
                                     color: AppColors.textPrimary,
                                     fontWeight: FontWeight.w600,
                                     fontSize: 14,
                                   ),
                                 ),
-                              ),
-                              if (isSelected)
-                                Container(
-                                  width: 24,
-                                  height: 24,
-                                  decoration: const BoxDecoration(
-                                    gradient: AppColors.primaryGradient,
-                                    shape: BoxShape.circle,
+                                if (staff['bio'] != null &&
+                                    (staff['bio'] as String).isNotEmpty)
+                                  Text(
+                                    staff['bio'],
+                                    style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  child: const Icon(
-                                    Icons.check,
-                                    color: Colors.white,
-                                    size: 14,
-                                  ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ).animate().fadeIn(delay: 300.ms),
+                          if (isSelected)
+                            Container(
+                              width: 24,
+                              height: 24,
+                              decoration: const BoxDecoration(
+                                gradient: AppColors.primaryGradient,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 14,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ).animate().fadeIn(delay: 300.ms),
 
             const SizedBox(height: 32),
 
             GradientButton(
               label: 'Continue',
-              onPressed: (selectedTime == null || selectedStaff == null)
-                  ? () => _showWarning(context)
-                  : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => BookingConfirmScreen(
-                          service: widget.service,
-                          date: selectedDate,
-                          time: selectedTime!,
-                          staff: selectedStaff!,
-                        ),
-                      ),
+              onPressed: () {
+                if (selectedTime == null) {
+                  _showWarning('Please select a time');
+                  return;
+                }
+                if (selectedStaff == null && _staffList.isNotEmpty) {
+                  _showWarning('Please select a stylist');
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => BookingConfirmScreen(
+                      service: widget.service,
+                      date: selectedDate,
+                      time: selectedTime!,
+                      staff:
+                          selectedStaff ??
+                          (_staffList.isNotEmpty ? _staffList.first : {}),
                     ),
+                  ),
+                );
+              },
             ).animate().fadeIn(delay: 400.ms),
 
             const SizedBox(height: 32),
@@ -378,10 +603,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     );
   }
 
-  void _showWarning(BuildContext context) {
+  void _showWarning(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Please select a time and stylist'),
+        content: Text(message),
         backgroundColor: AppColors.goldenStar,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

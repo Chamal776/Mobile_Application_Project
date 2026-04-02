@@ -8,7 +8,7 @@ import '../../../shared/widgets/service_card.dart';
 import '../../../shared/widgets/staff_card.dart';
 import '../../../shared/widgets/shimmer_loader.dart';
 import '../../services/data/services_repository.dart';
-import '../../services/presentation/services_screen.dart';
+import '../../services/presentation/service_screen.dart';
 import '../../services/presentation/service_detail_screen.dart';
 import '../../services/domain/service_model.dart';
 import '../../staff/presentation/staff_screen.dart';
